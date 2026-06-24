@@ -1,4 +1,4 @@
 interface:
-  display_name: "Beyond Compare Document Reports"
-  short_description: "Headless Beyond Compare reports for files and folders."
-  default_prompt: "Use $beyond-compare-document-reports to compare these two documents and generate a simple report."
+  display_name: "Document Compare"
+  short_description: "Headless Beyond Compare reports for documents."
+  default_prompt: "Use $document-compare to compare these two documents and generate a simple report."

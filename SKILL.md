@@ -1,99 +1,66 @@
 ---
-name: beyond-compare-document-reports
-description: Generate headless Beyond Compare 5 reports on Windows for document, spreadsheet, text, binary, and folder comparisons. Use when Codex needs to compare files or folders with Beyond Compare without opening the GUI, especially for .doc, .docx, .xls, .xlsx, .txt, CSV-like files, binary same/different checks, report files, HTML text reports, or folder XML reports.
+name: document-compare
+description: Generate headless Beyond Compare 5 reports on Windows. Use for document, spreadsheet, text, binary, or folder comparisons, especially .doc, .docx, .xls, .xlsx, .txt, HTML reports, XML folder reports, or same/different checks without opening the GUI.
 ---
 
-# Beyond Compare Document Reports
+# Document Compare
 
-## Core Rule
-
-Use the hardcoded Windows install path:
+Use the hardcoded console helper:
 
 ```powershell
 $BComp = "J:\Program Files\Beyond Compare 5\BComp.com"
 ```
 
-Do not search for the Beyond Compare installation unless this path fails.
+Do not search for Beyond Compare unless that path fails. Do not use `BCompare.exe`, `BComp.exe`, or `BComp.com left right` for report-only work; those can open GUI windows.
 
-Do not use `BCompare.exe`, `BComp.exe`, or direct commands like `BComp.com left right` for report-only work. Those can open GUI windows.
+## Default Path
 
-## Default Workflow
-
-1. Identify whether the inputs are files or folders.
-2. Use `scripts/New-BeyondCompareReport.ps1` for headless report generation.
-3. Inspect the generated report for results and `Conversion Error`.
-4. Use `/qc=binary` only when the user needs a quick same/different exit code for two files.
-5. Read `references/beyond-compare-5-windows-cli-report-guide.md` only when needing exact switch behavior, exit-code nuance, or examples.
-
-## Generate Reports
-
-Use the bundled helper script:
+Prefer the bundled helper:
 
 ```powershell
 & ".\scripts\New-BeyondCompareReport.ps1" -Left "C:\left.docx" -Right "C:\right.docx" -Output "C:\report.txt"
 ```
 
-For folder XML:
+Modes:
+
+| Mode | Use | Output |
+|---|---|---|
+| `File` | Default file/document/spreadsheet report | Text report |
+| `TextHtml` | Text side-by-side HTML report | HTML report |
+| `Folder` | Recursive folder comparison | XML report |
+
+Examples:
 
 ```powershell
-& ".\scripts\New-BeyondCompareReport.ps1" -Mode Folder -Left "C:\left_folder" -Right "C:\right_folder" -Output "C:\folder_report.xml"
+& ".\scripts\New-BeyondCompareReport.ps1" -Mode TextHtml -Left "C:\a.txt" -Right "C:\b.txt" -Output "C:\diff.html"
+& ".\scripts\New-BeyondCompareReport.ps1" -Mode Folder -Left "C:\old" -Right "C:\new" -Output "C:\folder.xml"
 ```
 
-For HTML text reports:
+After Office reports, check for conversion failure:
 
 ```powershell
-& ".\scripts\New-BeyondCompareReport.ps1" -Mode TextHtml -Left "C:\left.txt" -Right "C:\right.txt" -Output "C:\report.html"
+(Get-Content "C:\report.txt" -Raw) -match "Conversion Error"
 ```
 
-## Quick Same/Different Checks
+If true, say Beyond Compare could not convert one or both files; do not claim a meaningful content diff.
+
+## Quick Exit Code
 
 For two files only:
 
 ```powershell
-& "J:\Program Files\Beyond Compare 5\BComp.com" /qc=binary "C:\left.file" "C:\right.file"
+& $BComp /qc=binary "C:\left.file" "C:\right.file"
 $LASTEXITCODE
 ```
 
-Important exit codes:
+Key codes: `1` binary same, `2` rules-based same but not byte-identical, `11` binary different, `12` similar, `13` rules-based different, `100` error, `105` script load error, `106` script syntax error, `107` file/folder load failure.
 
-| Code | Meaning |
-|---:|---|
-| `1` | Binary same |
-| `2` | Rules-based same, but not binary-identical |
-| `11` | Binary differences |
-| `12` | Similar |
-| `13` | Rules-based differences |
-| `100` | Error |
-| `105` | Script file load error |
-| `106` | Script syntax error |
-| `107` | Script failed to load folders or files |
+Avoid `/qc` for folders; generate folder XML instead. Avoid `/qc=size`; observed behavior was not reliable as size-only comparison.
 
-Avoid `/qc` for folders. Generate a folder XML report instead.
+## Reference
 
-## Office Files
-
-Beyond Compare can generate reports for `.doc`, `.docx`, `.xls`, and `.xlsx`, but conversion can fail depending on file contents and installed converters.
-
-After report generation, check:
-
-```powershell
-$report = Get-Content "C:\report.txt" -Raw
-$report -match "Conversion Error"
-```
-
-If `Conversion Error` appears, report that Beyond Compare could not convert one or both files for content comparison. Do not claim a meaningful document/spreadsheet content diff from that report.
-
-## HTML Reports
-
-A `.html` output filename is not enough. The BC script must include:
-
-```text
-output-options:html-color
-```
-
-The bundled helper adds this automatically for `-Mode TextHtml`.
+Read `references/beyond-compare-5-windows-cli-report-guide.md` only when needing exact script syntax, observed exit-code nuance, or troubleshooting details.
 
 ## Safety
 
-Never run mirror sync, delete, move, or direct GUI compare commands unless the user explicitly asks for that destructive or interactive behavior.
-
+Never run mirror sync, delete, move, or direct GUI compare commands unless the user explicitly asks for destructive or interactive behavior.
