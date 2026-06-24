@@ -1,6 +1,6 @@
 ---
 name: document-compare
-description: Generate headless Beyond Compare 5 reports on Windows with LLM-friendly JSONL by default. Use for comparing documents, spreadsheets, text files, binary files, or folders, especially .doc, .docx, .xls, .xlsx, .txt, folder trees, HTML reports for humans, XML folder reports, or same/different checks without opening the GUI.
+description: Generate headless Beyond Compare 5 reports on Windows with machine-friendly JSONL by default, then interpret and summarize results in plain language. Use for comparing documents, spreadsheets, text files, binary files, or folders, including .doc, .docx, .xls, .xlsx, .txt, folder trees, XML folder reports, same/different checks, or explicit user requests for HTML reports without opening the GUI.
 ---
 
 # Document Compare
@@ -13,7 +13,7 @@ Use the bundled helper unless the user only needs a quick same/different exit co
 & ".\scripts\New-BeyondCompareReport.ps1" -Left "C:\left.docx" -Right "C:\right.docx" -Output "C:\diff.jsonl"
 ```
 
-Default output is LLM-readable JSON Lines for `File` and `Folder` modes. Read the JSONL, check for `conversion_error`, then summarize changes for the human.
+Default to machine-friendly JSONL for `File` and `Folder` modes. Read it, check for `conversion_error`, then summarize the result in plain language. Do not create HTML or expose raw JSONL unless the user asks for it.
 
 The helper checks only fixed Beyond Compare console paths, in order: explicit `-BCompPath` (folder or `BComp.com`), `J:\Program Files\Beyond Compare 5\BComp.com`, then `D:\Program Files\Beyond Compare 5\BComp.com`. Do not search the filesystem unless all fixed paths fail and the user asks you to locate it.
 
@@ -23,9 +23,9 @@ The helper checks only fixed Beyond Compare console paths, in order: explicit `-
 |---|---|---|
 | `File` | Documents, spreadsheets, text, binary-like files | JSONL wrapping a mismatch-only text report |
 | `Folder` | Recursive folder comparison | JSONL converted from Beyond Compare XML |
-| `TextHtml` | Human side-by-side text report | HTML |
+| `TextHtml` | Only when the user asks for HTML or a visual side-by-side report | HTML |
 
-Use explicit raw output only when needed:
+Use explicit raw/HTML output only when requested or needed for troubleshooting:
 
 ```powershell
 & ".\scripts\New-BeyondCompareReport.ps1" -Mode TextHtml -OutputFormat Raw -Left "C:\a.txt" -Right "C:\b.txt" -Output "C:\diff.html"
@@ -63,6 +63,8 @@ Key codes: `1` binary same, `2` rules-based same but not byte-identical, `11` bi
 Avoid `/qc` for folders; generate folder JSONL instead. Avoid `/qc=size`; observed behavior was not reliable as size-only comparison.
 
 ## Reference
+
+Source/update repo: https://github.com/billerss11/document-compare
 
 Use only the fixed console helper paths above. Do not use `BCompare.exe`, `BComp.exe`, or direct `BComp.com left right` for reports; those can open GUI windows.
 
