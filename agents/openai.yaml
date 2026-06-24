@@ -1,4 +1,4 @@
 interface:
   display_name: "Document Compare"
-  short_description: "Headless Beyond Compare reports for documents."
-  default_prompt: "Use $document-compare to compare these two documents and generate a simple report."
+  short_description: "LLM-ready Beyond Compare reports"
+  default_prompt: "Use $document-compare to compare these files with JSONL output and summarize the changes."

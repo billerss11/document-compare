@@ -7,26 +7,35 @@ Use this reference only when SKILL.md is not enough.
 | Item | Value |
 |---|---|
 | Beyond Compare version tested | `5.0.0.29773` |
-| Console helper | `J:\Program Files\Beyond Compare 5\BComp.com` |
-| Safe report pattern | `BComp.com /silent /closescript @"script.bc" left right report` |
+| Console helper paths | Explicit `-BCompPath` folder/file, `J:\Program Files\Beyond Compare 5\BComp.com`, `D:\Program Files\Beyond Compare 5\BComp.com` |
+| Safe report pattern | PowerShell running `BComp.com /silent /closescript @"script.bc" left right report` |
 
-Avoid `BCompare.exe`, `BComp.exe`, and direct `BComp.com left right` for automation because they can open GUI windows.
+Check only the fixed helper paths above unless the user asks to locate the install. Avoid `BCompare.exe`, `BComp.exe`, and direct `BComp.com left right` for automation because they can open GUI windows.
 
 ## Report Scripts
 
-Plain file report:
+Mismatch-only file report used before JSONL wrapping:
 
 ```text
-file-report layout:summary output-to:"%3" "%1" "%2"
+file-report layout:side-by-side options:display-mismatches,line-numbers output-to:"%3" "%1" "%2"
 ```
 
-HTML text report:
+Human HTML text report:
 
 ```text
 text-report layout:side-by-side options:display-mismatches,line-numbers output-to:"%3" output-options:html-color "%1" "%2"
 ```
 
 Folder XML report:
+
+```text
+criteria rules-based
+load "%1" "%2"
+expand all
+folder-report layout:xml options:display-mismatches output-to:"%3"
+```
+
+Older fallback folder XML report:
 
 ```text
 load "%1" "%2"
