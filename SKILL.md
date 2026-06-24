@@ -32,6 +32,10 @@ Use explicit raw/HTML output only when requested or needed for troubleshooting:
 & ".\scripts\New-BeyondCompareReport.ps1" -Mode Folder -OutputFormat Raw -Left "C:\old" -Right "C:\new" -Output "C:\folder.xml"
 ```
 
+## Excel Sheets
+
+Beyond Compare CLI cannot select Excel worksheets by sheet name. For multisheet `.xls`/`.xlsx` or sheet-name requests, first extract requested/all worksheets to normalized UTF-8 TSV files, then compare those exports. Default to matching sheets by name, reporting added/removed sheets, and comparing cell values only. Compare formulas, formatting, charts, macros, pivots, comments, or structure only when explicitly asked.
+
 ## JSONL Contract
 
 Expect one JSON object per line:
