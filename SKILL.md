@@ -1,11 +1,19 @@
 ---
 name: document-compare
-description: Generate headless Beyond Compare 5 reports on Windows with machine-friendly JSONL by default, then interpret and summarize results in plain language. Use for comparing documents, spreadsheets, text files, binary files, or folders, including .doc, .docx, .xls, .xlsx, .txt, folder trees, XML folder reports, same/different checks, or explicit user requests for HTML reports without opening the GUI.
+description: "MUST USE for file or folder comparison tasks on Windows: compare, diff, find differences, check what changed, compare two versions, same/different checks, or create comparison reports for documents, spreadsheets, text files, binary files, or folders. Handles .doc, .docx, .xls, .xlsx, .txt, folder trees, XML folder reports, and explicit HTML side-by-side report requests with headless Beyond Compare 5, defaults to machine-friendly JSONL, then summarizes results in plain language without opening the GUI. Do not use for purely conceptual comparisons where no files or folders are being compared."
 ---
 
 # Document Compare
 
 Prefer PowerShell for this skill.
+
+## When To Use This Skill
+
+Use this skill whenever the user asks to compare actual files, folders, exports, versions, revisions, or before/after copies. This includes casual wording like "what changed?", "show differences", "old vs new", "v1 vs v2", "are these the same?", "compare these docs", "diff these spreadsheets", or "make me a comparison report".
+
+Do not skip this skill just because the user did not say "Beyond Compare". The point of the skill is to choose the correct headless Beyond Compare workflow for them.
+
+Do not use this skill for comparing ideas, APIs, products, plans, code approaches, or other conceptual topics unless the task includes concrete files or folders to compare.
 
 Use the bundled helper unless the user only needs a quick same/different exit code:
 
