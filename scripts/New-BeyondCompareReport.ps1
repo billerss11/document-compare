@@ -114,7 +114,7 @@ function New-MetadataRecord {
 
     [ordered]@{
         type = "metadata"
-        schema_version = 1
+        schema_version = 2
         mode = $Mode
         left = (Resolve-Path -LiteralPath $Left).Path
         right = (Resolve-Path -LiteralPath $Right).Path
@@ -246,8 +246,15 @@ function Add-FolderXmlRecords {
     }
 
     $status = Get-AttributeValue -Attributes $attributes -Names @("status", "state", "comparison", "result", "side")
+    $leftInfo = Get-SideInfo -Element $Element -Side "lt"
+    $rightInfo = Get-SideInfo -Element $Element -Side "rt"
+    # BC does not put a status attribute on one-sided folders, including empty ones.
+    if ($Element.LocalName -eq "foldercomp" -and -not $status) {
+        if ($leftInfo -and -not $rightInfo) { $status = "ltonly" }
+        if ($rightInfo -and -not $leftInfo) { $status = "rtonly" }
+    }
     $isRoot = $Element.OwnerDocument.DocumentElement -eq $Element
-    if (-not $isRoot -and $attributes.Count -gt 0 -and $status -ine "same") {
+    if (-not $isRoot -and ($attributes.Count -gt 0 -or $status) -and $status -ine "same") {
         $record = [ordered]@{
             type = "entry"
             element = $Element.LocalName
@@ -261,12 +268,10 @@ function Add-FolderXmlRecords {
             $record["status"] = $status
         }
 
-        $leftInfo = Get-SideInfo -Element $Element -Side "lt"
         if ($leftInfo) {
             $record["left_item"] = $leftInfo
         }
 
-        $rightInfo = Get-SideInfo -Element $Element -Side "rt"
         if ($rightInfo) {
             $record["right_item"] = $rightInfo
         }
@@ -280,6 +285,13 @@ function Add-FolderXmlRecords {
             Add-FolderXmlRecords -Element ([System.Xml.XmlElement] $child) -ParentPath $path -Records $Records
         }
     }
+}
+
+function Test-ReportConversionError {
+    param([string] $Content)
+
+    # Match BC diagnostic headers, not the numbered file content or HTML cells.
+    $Content -match '(?m)^(?:Left|Right) error:[ \t]*Conversion Error\b'
 }
 
 function Convert-TextReportToJsonl {
@@ -297,20 +309,48 @@ function Convert-TextReportToJsonl {
         [string] $Left,
 
         [Parameter(Mandatory = $true)]
-        [string] $Right
+        [string] $Right,
+
+        [Parameter(Mandatory = $true)]
+        [string] $BComp
     )
 
     $content = Get-Content -LiteralPath $RawPath -Raw
-    $conversionError = $content -match "Conversion Error"
+    $conversionError = Test-ReportConversionError -Content $content
     $records = New-Object System.Collections.Generic.List[object]
 
     $records.Add((New-MetadataRecord -Mode $Mode -Left $Left -Right $Right -RawFormat "text"))
+    $summary = [ordered]@{
+        type = "summary"
+        outcome = "error"
+        comparison = "rules-based"
+    }
+    $records.Add($summary)
 
-    if ($conversionError) {
+    $reportErrors = [regex]::Matches($content, '(?im)^(?:Left|Right) error:[^\r\n]*')
+    if ($reportErrors.Count -gt 0) {
         $records.Add([ordered]@{
-            type = "conversion_error"
-            message = "Beyond Compare could not convert one or both files."
+            type = $(if ($conversionError) { "conversion_error" } else { "comparison_error" })
+            message = ($reportErrors.Value -join "; ")
         })
+    }
+    else {
+        # Ask the engine for the outcome; do not infer equality from report layout.
+        & $BComp /silent /qc=rules-based $Left $Right | Out-Null
+        $quickExitCode = $LASTEXITCODE
+        $summary["quick_compare_exit_code"] = $quickExitCode
+        if ($quickExitCode -in @(1, 2)) {
+            $summary["outcome"] = "same"
+        }
+        elseif ($quickExitCode -in @(11, 12, 13, 14)) {
+            $summary["outcome"] = "different"
+        }
+        else {
+            $records.Add([ordered]@{
+                type = "comparison_error"
+                message = "Beyond Compare quick comparison failed or returned an unrecognized exit code: $quickExitCode"
+            })
+        }
     }
 
     $lineNumber = 0
@@ -349,16 +389,31 @@ function Convert-FolderReportToJsonl {
 
     $records = New-Object System.Collections.Generic.List[object]
     $records.Add((New-MetadataRecord -Mode "Folder" -Left $Left -Right $Right -RawFormat "xml"))
+    $summary = [ordered]@{
+        type = "summary"
+        outcome = "error"
+        comparison = "rules-based"
+    }
+    $records.Add($summary)
 
     try {
         [xml] $xml = Get-Content -LiteralPath $RawPath -Raw
+        if (-not $xml.SelectSingleNode('/bcreport/foldercomp')) {
+            throw "Expected a Beyond Compare folder report (bcreport/foldercomp)."
+        }
         Add-FolderXmlRecords -Element $xml.DocumentElement -ParentPath "" -Records $records
 
-        if ($records.Count -eq 1) {
+        $entries = @($records | Where-Object { $_.type -eq "entry" })
+        $unknownEntries = @($entries | Where-Object { $_.status -notin @("diff", "ltonly", "rtonly") })
+        $summary["entry_count"] = $entries.Count
+        if ($unknownEntries.Count -gt 0 -or $xml.SelectNodes('//error').Count -gt 0) {
             $records.Add([ordered]@{
-                type = "note"
-                message = "Folder XML contained no attributed entry elements."
+                type = "comparison_error"
+                message = "Folder report contains errors or unrecognized entry statuses; inspect the raw XML before drawing conclusions."
             })
+        }
+        else {
+            $summary["outcome"] = $(if ($entries.Count -gt 0) { "different" } else { "same" })
         }
     }
     catch {
@@ -464,12 +519,12 @@ file-report layout:side-by-side options:display-mismatches,line-numbers output-t
             $conversionError = Convert-FolderReportToJsonl -RawPath $rawOutputPath -OutputPath $Output -Left $Left -Right $Right
         }
         else {
-            $conversionError = Convert-TextReportToJsonl -RawPath $rawOutputPath -OutputPath $Output -Mode $Mode -Left $Left -Right $Right
+            $conversionError = Convert-TextReportToJsonl -RawPath $rawOutputPath -OutputPath $Output -Mode $Mode -Left $Left -Right $Right -BComp $BComp
         }
     }
     else {
         $content = Get-Content -LiteralPath $Output -Raw
-        $conversionError = $content -match "Conversion Error"
+        $conversionError = Test-ReportConversionError -Content $content
     }
 
     if ($FailOnConversionError -and $conversionError) {

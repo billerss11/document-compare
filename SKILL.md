@@ -15,13 +15,13 @@ Do not skip this skill just because the user did not say "Beyond Compare". The p
 
 Do not use this skill for comparing ideas, APIs, products, plans, code approaches, or other conceptual topics unless the task includes concrete files or folders to compare.
 
-Use the bundled helper unless the user only needs a quick same/different exit code:
+Use the bundled helper unless the user only needs a quick same/different exit code. Resolve the helper relative to the directory containing this `SKILL.md`, not the user's working directory. Examples below assume the skill directory is current:
 
 ```powershell
 & ".\scripts\New-BeyondCompareReport.ps1" -Left "C:\left.docx" -Right "C:\right.docx" -Output "C:\diff.jsonl"
 ```
 
-Default to machine-friendly JSONL for `File` and `Folder` modes. Read it, check for `conversion_error`, then summarize the result in plain language. Do not create HTML or expose raw JSONL unless the user asks for it.
+Default to machine-friendly JSONL for `File` and `Folder` modes. Check the process exit code, then read the `summary` and any error records before summarizing changes in plain language. Exit `0` means a report was written; it does not prove the comparison succeeded. Do not create HTML or expose raw JSONL unless the user asks for it.
 
 The helper checks only fixed Beyond Compare console paths, in order: explicit `-BCompPath` (folder or `BComp.com`), `J:\Program Files\Beyond Compare 5\BComp.com`, then `D:\Program Files\Beyond Compare 5\BComp.com`. Do not search the filesystem unless all fixed paths fail and the user asks you to locate it.
 
@@ -46,15 +46,30 @@ Beyond Compare CLI cannot select Excel worksheets by sheet name. For multisheet 
 
 ## JSONL Contract
 
-Expect one JSON object per line:
+Schema version `2` keeps the existing entry/report-line fields and adds a `summary` immediately after `metadata`. Expect one JSON object per line:
 
 - `metadata`: inputs, mode, engine, schema version
+- `summary`: `outcome` (`same`, `different`, or `error`) and `comparison` (`rules-based`). File summaries include `quick_compare_exit_code` when that check runs; folder summaries include `entry_count` when XML parsing succeeds.
 - `entry`: folder item from XML, with `path`, optional `status`, and raw `details`
-- `report_line`: numbered line from a file/document report
-- `conversion_error`: Beyond Compare could not convert one or both Office files
-- `xml_parse_error`: folder XML could not be parsed; raw lines follow
+- `report_line`: `line` is the 1-based **report** line number; `text` contains the original comparison layout
+- `conversion_error`: Beyond Compare reported a file conversion failure
+- `comparison_error`: another report error, failed outcome check, or unrecognized folder status
+- `xml_parse_error`: folder XML could not be parsed or had an unexpected structure; `raw_line` records follow
 
-If `conversion_error` appears, say content comparison failed. Do not claim a meaningful document/spreadsheet diff.
+JSONL is UTF-8 without a BOM. When reading it in PowerShell, specify the encoding: `Get-Content -LiteralPath "C:\diff.jsonl" -Encoding UTF8 | ForEach-Object { $_ | ConvertFrom-Json }`.
+
+`same` means no differences under the active Beyond Compare rules; it does not necessarily mean byte-identical files. `different` includes changes classified as unimportant by the engine. `entry_count` counts emitted folder/file entries, including one-sided directories; it is not a count of changed lines or cells.
+
+If `outcome` is `error` or any error record appears, report that the comparison could not be completed reliably. Do not infer equality from an empty report or claim a meaningful document/spreadsheet diff after conversion failed. `-FailOnConversionError` also makes a detected conversion failure return a nonzero process exit code.
+
+### Reading Differences
+
+- In text reports, `<>` marks a changed block, `-+` marks a right-only block, and `+-` marks a left-only block. Continuation rows may omit the marker. Read the populated columns and their line numbers together; a block is not necessarily a one-to-one line replacement. Headers and dashed separators are report layout, not changes.
+- Numbers inside `report_line.text` refer to positions in the compared text/table, which may be converted Office content or exported TSV. They are not the outer `line` field, Word page numbers, or Excel cell addresses.
+- Folder statuses: `diff` = different, `ltonly` = only on the left, `rtonly` = only on the right. One-sided folders have these statuses inferred from the XML sides; `details` preserves the original attributes.
+- Left/right are input positions. Call right-only content "added" and left-only content "removed" only when left is the earlier version and right is the later version.
+
+For example, `{"type":"report_line","line":7,"text":"2 Budget: 100 <> 2 Budget: 120"}` describes a change at compared line 2 on both sides, carried on report line 7.
 
 ## Quick Exit Code
 

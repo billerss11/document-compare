@@ -6,7 +6,7 @@ Use this reference only when SKILL.md is not enough.
 
 | Item | Value |
 |---|---|
-| Beyond Compare version tested | `5.0.0.29773` |
+| Beyond Compare versions tested | `5.0.0.29773`; summary/error handling also checked with `5.0.3.30240` |
 | Console helper paths | Explicit `-BCompPath` folder/file, `J:\Program Files\Beyond Compare 5\BComp.com`, `D:\Program Files\Beyond Compare 5\BComp.com` |
 | Safe report pattern | PowerShell running `BComp.com /silent /closescript @"script.bc" left right report` |
 
@@ -73,6 +73,10 @@ Observed nuance:
 
 Do not rely on `/qc=size` as size-only comparison; same-size different files returned `11` in testing.
 
+For file JSONL summaries, the helper runs a separate `/silent /qc=rules-based` check after report generation. Codes `1` and `2` map to `same`; `11`, `12`, `13`, and `14` map to `different`; other codes produce `outcome: error` and a `comparison_error` record. File contents should remain unchanged until the helper finishes both reads. A report diagnostic takes precedence and skips this extra check.
+
+Folder summaries use the report XML instead of `/qc`. Empty one-sided directories count as differences. Invalid XML, an unexpected root structure, XML errors, and unrecognized entry statuses produce `outcome: error`, never `same`. Rerun with `-OutputFormat Raw` to inspect the original XML when needed.
+
 ## Office Reports
 
 Use `file-report` for `.doc`, `.docx`, `.xls`, and `.xlsx`, then inspect the generated report.
@@ -81,9 +85,15 @@ Use `file-report` for `.doc`, `.docx`, `.xls`, and `.xlsx`, then inspect the gen
 |---|---|
 | `Text Compare` | Text/extracted-text comparison ran |
 | `Table Compare` | Table comparison ran |
-| `Conversion Error` | BC could not convert one or both files |
+| `Left error: Conversion Error` / `Right error: Conversion Error` | BC could not convert the indicated file |
 
-If `Conversion Error` appears, report that content comparison failed. Binary `/qc=binary` can still prove bytes differ, but it does not prove a meaningful document/spreadsheet diff.
+Conversion failure detection checks BC's diagnostic headers. The words `Conversion Error` inside compared content, filenames, or HTML table cells are ordinary data. Other `Left error:` / `Right error:` diagnostics also make the JSONL summary an error. Binary `/qc=binary` can still prove bytes differ after conversion fails, but it does not prove a meaningful document/spreadsheet diff.
+
+## Helper Regression Checks
+
+Run `tests/Test-BeyondCompareReport.ps1` from the skill directory with `pwsh -NoProfile -File` or `powershell -NoProfile -File`. It uses the installed Beyond Compare, accepts the same optional `-BCompPath`, and creates/removes only temporary fixtures. No extra test framework is required.
+
+Checks cover file equality/differences, preserved report evidence, literal diagnostic text, genuine conversion failures, raw/HTML output, nested folder differences, and empty added folders. Real Chinese DOCX versions were also checked in PowerShell 7 and Windows PowerShell 5.1, with reported additions verified against document XML.
 
 ## Destructive Operations
 
