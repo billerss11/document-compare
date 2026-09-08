@@ -1,19 +1,13 @@
 ---
 name: document-compare
-description: "MUST USE for file or folder comparison tasks on Windows: compare, diff, find differences, check what changed, compare two versions, same/different checks, or create comparison reports for documents, spreadsheets, text files, binary files, or folders. Handles .doc, .docx, .xls, .xlsx, .txt, folder trees, XML folder reports, and explicit HTML side-by-side report requests with headless Beyond Compare 5, defaults to machine-friendly JSONL, then summarizes results in plain language without opening the GUI. Do not use for purely conceptual comparisons where no files or folders are being compared."
+description: "Compare concrete files or folders on Windows with headless Beyond Compare 5. Use for version diffs and same/different checks of documents, spreadsheets, text, binaries, and folder trees, including requests phrased as 'what changed?'. Produce JSONL by default or HTML when explicitly requested; do not use for conceptual comparisons."
 ---
 
 # Document Compare
 
 Prefer PowerShell for this skill.
 
-## When To Use This Skill
-
-Use this skill whenever the user asks to compare actual files, folders, exports, versions, revisions, or before/after copies. This includes casual wording like "what changed?", "show differences", "old vs new", "v1 vs v2", "are these the same?", "compare these docs", "diff these spreadsheets", or "make me a comparison report".
-
-Do not skip this skill just because the user did not say "Beyond Compare". The point of the skill is to choose the correct headless Beyond Compare workflow for them.
-
-Do not use this skill for comparing ideas, APIs, products, plans, code approaches, or other conceptual topics unless the task includes concrete files or folders to compare.
+## Workflow
 
 Use the bundled helper unless the user only needs a quick same/different exit code. Resolve the helper relative to the directory containing this `SKILL.md`, not the user's working directory. Examples below assume the skill directory is current:
 
